@@ -1,8 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
 from sqlalchemy.orm import validates
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy_serializer import SerializerMixin
 
 convention = {
     "ix": "ix_%(column_0_label)s",
@@ -13,11 +11,10 @@ convention = {
 }
 
 metadata = MetaData(naming_convention=convention)
-
 db = SQLAlchemy(metadata=metadata)
+# db = SQLAlchemy()
 
-
-class Planet(db.Model, SerializerMixin):
+class Planet(db.Model):
     __tablename__ = 'planets'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -26,11 +23,13 @@ class Planet(db.Model, SerializerMixin):
     nearest_star = db.Column(db.String)
 
     # Add relationship
-
+    scientists = db.relationship("Scientist", secondary="missions", back_populates="planets")
+    missions = db.relationship("Mission", back_populates="planet", overlaps="scientists", cascade="delete")
     # Add serialization rules
 
-
-class Scientist(db.Model, SerializerMixin):
+    # serialize_rules=('-scientists', "-missions",) #this is correct
+    
+class Scientist(db.Model):
     __tablename__ = 'scientists'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -39,22 +38,60 @@ class Scientist(db.Model, SerializerMixin):
 
     # Add relationship
 
+    planets = db.relationship("Planet", secondary="missions", back_populates="scientists", overlaps="missions")
+    missions = db.relationship("Mission", back_populates="scientist", overlaps="planets,scientists", cascade="delete")
     # Add serialization rules
 
+    # serialize_rules = ("-planets.scientists", "-missions.scientist",)
     # Add validation
 
+    @validates("name")
+    def test_name(self, key, address):
+        if address == "" or address == None:
+            raise ValueError("Please include name")
+        return address
+    
+    @validates("field_of_study")
+    def test_fod(self, key, address):
+        if address == "" or address == None:
+            raise ValueError("Please include field of study")
+        return address
+    
 
-class Mission(db.Model, SerializerMixin):
+
+class Mission(db.Model):
     __tablename__ = 'missions'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
 
+    scientist_id = db.Column(db.Integer, db.ForeignKey("scientists.id"))
+    planet_id = db.Column(db.Integer, db.ForeignKey("planets.id"))
+
     # Add relationships
+    planet = db.relationship("Planet", back_populates="missions", overlaps="planets,scientists")
+    scientist = db.relationship("Scientist", back_populates="missions", overlaps="planets,scientists")
 
     # Add serialization rules
-
+    # serialize_rules = ("-planet.missions", "-scientist.missions")
     # Add validation
 
+    @validates("name")
+    def test_name(self, key, address):
+        if address == "" or address == None:
+            raise ValueError("Must provide Name")
+        return address
+
+    @validates("scientist_id")
+    def test_scientist(self, key, address):
+        if address == "" or address == None:
+            raise ValueError("Must provide Scientist")
+        return address
+        
+    @validates("planet_id")
+    def test_planet(self, key, address):
+        if address == "" or address == None:
+            raise ValueError("Must provide Planet")
+        return address
 
 # add any models you may need.

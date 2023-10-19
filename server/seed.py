@@ -55,9 +55,10 @@ if __name__ == '__main__':
 
     with app.app_context():
         print("Clearing db...")
+        Mission.query.delete()
         Planet.query.delete()
         Scientist.query.delete()
-        Mission.query.delete()
+        
 
         print("Seeding planets...")
         planets = create_planets()
